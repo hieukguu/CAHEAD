@@ -1,19 +1,42 @@
 'use client';
-import Script from 'next/script';
+
 import Link from 'next/link';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { type FormEvent } from 'react';
 import { contactServices } from '@/lib/contact';
+import { site } from '@/lib/site';
 import { Arrow } from './ui';
-type Turnstile = { render: (container: HTMLElement, options: Record<string,unknown>) => string; reset:(id:string)=>void; remove:(id:string)=>void };
-declare global { interface Window { turnstile?: Turnstile } }
-export function ContactForm({ initialService, connected }: { initialService: string; connected: boolean }) {
-  const [busy,setBusy]=useState(false); const [status,setStatus]=useState<{ok:boolean;message:string}|null>(null); const [errors,setErrors]=useState<Record<string,string>>({}); const [ready,setReady]=useState(false);
-  const start=useRef(0); const form=useRef<HTMLFormElement>(null); const alert=useRef<HTMLDivElement>(null); const widget=useRef<HTMLDivElement>(null); const widgetId=useRef<string|null>(null); const token=useRef('');
-  const key=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  useEffect(()=>{start.current=Date.now();},[]);
-  useEffect(()=>{if(ready && key && widget.current && window.turnstile){widgetId.current=window.turnstile.render(widget.current,{sitekey:key,theme:'light',callback:(value:string)=>{token.current=value;},'expired-callback':()=>{token.current='';},'error-callback':()=>{token.current='';setErrors(e=>({...e,turnstileToken:'Security check could not load. Please refresh and try again.'}));}});}return ()=>{if(widgetId.current && window.turnstile){window.turnstile.remove(widgetId.current);widgetId.current=null;}};},[ready,key]);
-  async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(busy)return;setBusy(true);setStatus(null);setErrors({});const data=new FormData(e.currentTarget);const body=Object.fromEntries(data);try{const response=await fetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,consent:data.get('consent')==='on',startedAt:start.current,turnstileToken:token.current}),signal:AbortSignal.timeout(30000)});const result=await response.json();setStatus({ok:response.ok,message:result.message||'We could not process your inquiry. Please try again.'});setErrors(result.errors||{});if(response.ok){form.current?.reset();start.current=Date.now();}}catch{setStatus({ok:false,message:'We could not confirm delivery. Check your connection and try again.'});}finally{setBusy(false);token.current='';if(widgetId.current && window.turnstile)window.turnstile.reset(widgetId.current);requestAnimationFrame(()=>alert.current?.focus());}}
-  const fieldProps=(name:string)=>({'aria-invalid':!!errors[name],'aria-describedby':errors[name]?`${name}-error`:undefined});
-  const error=(name:string)=>errors[name]?<p className="field-error" id={`${name}-error`}>{errors[name]}</p>:null;
-  return <form ref={form} onSubmit={submit} className="contact-form" aria-label="Growth inquiry" aria-busy={busy}>{!connected&&<p className="form-preview"><strong>Preview form.</strong> Email delivery is not connected yet. Submissions will not be sent.</p>}{status&&<div ref={alert} tabIndex={-1} role={status.ok?'status':'alert'} className={`form-alert ${status.ok?'form-success':''}`}>{status.message}</div>}<div className="form-grid"><div className="field"><label htmlFor="name">Name *</label><input id="name" name="name" autoComplete="name" required minLength={2} maxLength={100} {...fieldProps('name')}/>{error('name')}</div><div className="field"><label htmlFor="email">Business email *</label><input id="email" name="email" type="email" autoComplete="email" required maxLength={254} {...fieldProps('email')}/>{error('email')}</div><div className="field"><label htmlFor="company">Company *</label><input id="company" name="company" autoComplete="organization" required maxLength={160} {...fieldProps('company')}/>{error('company')}</div><div className="field"><label htmlFor="website">Website *</label><input id="website" name="website" type="url" autoComplete="url" placeholder="https://yourcompany.com" required maxLength={500} {...fieldProps('website')}/>{error('website')}</div><div className="field"><label htmlFor="service">Service of interest *</label><select id="service" name="service" defaultValue={contactServices.includes(initialService as typeof contactServices[number])?initialService:'Not sure yet'} {...fieldProps('service')}>{contactServices.map(s=><option key={s}>{s}</option>)}</select>{error('service')}</div><div className="field"><label htmlFor="budget">Monthly budget (optional)</label><select id="budget" name="budget" defaultValue=""><option value="">Select a range (USD)</option><option>Under $3,000</option><option>$3,000–$5,000</option><option>$5,000–$10,000</option><option>$10,000+</option><option>To be discussed</option></select></div><div className="field field-wide"><label htmlFor="message">What would you like to achieve? *</label><textarea id="message" name="message" required minLength={20} maxLength={5000} placeholder="A little about your brand, your current program, and where you’d like to go." {...fieldProps('message')}/>{error('message')}</div></div><div className="honeypot" aria-hidden="true"><label htmlFor="fax">Leave this field empty</label><input name="fax" id="fax" tabIndex={-1} autoComplete="off"/></div><label className="form-consent"><input name="consent" type="checkbox" required {...fieldProps('consent')}/><span>I agree to be contacted about this inquiry and have read the <Link href="/privacy">Privacy Policy</Link>. No marketing subscription.</span></label>{error('consent')}{key&&<><Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" onReady={()=>setReady(true)}/><div ref={widget}/>{error('turnstileToken')}</>}<button className="button" type="submit" disabled={busy}>{busy?'Sending your inquiry…':'Start a Conversation'}<Arrow/></button><p className="form-note">A first conversation to understand your goals. No obligation.</p><noscript><p className="field-error">JavaScript is required to submit this form. Use the contact email if one is shown on this page.</p></noscript></form>;
+
+export function ContactForm() {
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const subject = `CAhead inquiry from ${data.get('name') || 'website visitor'}`;
+    const body = [
+      `Name: ${data.get('name') || ''}`,
+      `Business email: ${data.get('email') || ''}`,
+      `Company: ${data.get('company') || ''}`,
+      `Website: ${data.get('website') || ''}`,
+      `Service: ${data.get('service') || ''}`,
+      `Monthly budget: ${data.get('budget') || 'Not specified'}`,
+      '',
+      String(data.get('message') || ''),
+    ].join('\n');
+    window.location.href = `mailto:${site.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  return <form onSubmit={submit} className="contact-form" aria-label="Growth inquiry">
+    <p className="form-preview"><strong>Email inquiry.</strong> Submitting opens your email app with the details completed for you.</p>
+    <div className="form-grid">
+      <div className="field"><label htmlFor="name">Name *</label><input id="name" name="name" autoComplete="name" required minLength={2} maxLength={100}/></div>
+      <div className="field"><label htmlFor="email">Business email *</label><input id="email" name="email" type="email" autoComplete="email" required maxLength={254}/></div>
+      <div className="field"><label htmlFor="company">Company *</label><input id="company" name="company" autoComplete="organization" required maxLength={160}/></div>
+      <div className="field"><label htmlFor="website">Website *</label><input id="website" name="website" type="url" autoComplete="url" placeholder="https://yourcompany.com" required maxLength={500}/></div>
+      <div className="field"><label htmlFor="service">Service of interest *</label><select id="service" name="service" defaultValue="Not sure yet">{contactServices.map(service => <option key={service}>{service}</option>)}</select></div>
+      <div className="field"><label htmlFor="budget">Monthly budget (optional)</label><select id="budget" name="budget" defaultValue=""><option value="">Select a range (USD)</option><option>Under $3,000</option><option>$3,000–$5,000</option><option>$5,000–$10,000</option><option>$10,000+</option><option>To be discussed</option></select></div>
+      <div className="field field-wide"><label htmlFor="message">What would you like to achieve? *</label><textarea id="message" name="message" required minLength={20} maxLength={5000} placeholder="A little about your brand, your current program, and where you’d like to go."/></div>
+    </div>
+    <label className="form-consent"><input name="consent" type="checkbox" required/><span>I agree to be contacted about this inquiry and have read the <Link href="/privacy">Privacy Policy</Link>. No marketing subscription.</span></label>
+    <button className="button" type="submit">Prepare Email <Arrow/></button>
+    <p className="form-note">Your information stays in your email app until you choose to send it.</p>
+  </form>;
 }

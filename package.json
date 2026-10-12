@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "start": "next start --hostname 0.0.0.0",
+    "start": "npx serve out",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "npm run typecheck"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",

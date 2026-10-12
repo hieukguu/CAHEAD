@@ -6,3 +6,5 @@ node_modules/
 *.log
 dist/
 tmp/
+out/
+*.zip
