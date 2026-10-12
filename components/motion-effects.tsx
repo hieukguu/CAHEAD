@@ -9,6 +9,7 @@ export function MotionEffects() {
   const pathname = usePathname();
   useEffect(() => {
     const root = document.documentElement;
+    const hero = document.querySelector<HTMLElement>('.hero-v2');
     root.classList.add('motion-enabled');
     const updateScroll = () => {
       const available = root.scrollHeight - window.innerHeight;
@@ -26,11 +27,21 @@ export function MotionEffects() {
       observer.unobserve(entry.target);
     }), { rootMargin: '0px 0px -9% 0px', threshold: 0.08 });
     elements.forEach(element => observer.observe(element));
+    const updatePointer = (event: PointerEvent) => {
+      if (!hero) return;
+      const bounds = hero.getBoundingClientRect();
+      hero.style.setProperty('--pointer-x', `${event.clientX - bounds.left}px`);
+      hero.style.setProperty('--pointer-y', `${event.clientY - bounds.top}px`);
+      hero.style.setProperty('--image-shift-x', `${((event.clientX / window.innerWidth) - .5) * -10}px`);
+      hero.style.setProperty('--image-shift-y', `${((event.clientY / window.innerHeight) - .5) * -7}px`);
+    };
     window.addEventListener('scroll', updateScroll, { passive: true });
+    hero?.addEventListener('pointermove', updatePointer, { passive: true });
     updateScroll();
     return () => {
       observer.disconnect();
       window.removeEventListener('scroll', updateScroll);
+      hero?.removeEventListener('pointermove', updatePointer);
       root.classList.remove('is-scrolled');
     };
   }, [pathname]);
