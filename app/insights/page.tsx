@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import { Arrow, CTA, PageHero } from '@/components/ui';
+import { articles } from '@/lib/articles';
+export const metadata = {title:'Affiliate Marketing Insights',description:'Practical field notes on affiliate readiness, publisher recruitment, and meaningful measurement.',alternates:{canonical:'/insights'}};
+export default function Insights(){return <><PageHero label="THE CAHEAD JOURNAL" title="Perspective for" emphasis="your next step." description="Practical ideas for building a considered affiliate program. Written to help you ask better questions, make informed decisions, and move forward."/><section className="container insight-grid article-list">{articles.map((a,i)=><Link className="insight-card" href={`/insights/${a.slug}`} key={a.slug}><div className="insight-number">FIELD NOTES <span>0{i+1}</span></div><div className="card-meta"><span>{a.category}</span><span>{a.readTime}</span></div><h2>{a.title}</h2><p>{a.excerpt}</p><span className="text-link">Read the article<Arrow/></span></Link>)}</section><CTA/></>;}
